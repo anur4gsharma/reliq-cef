@@ -1,30 +1,10 @@
-import subprocess
-import sys
-import time
-import tempfile
 import os
 import pathlib
+import subprocess
+import sys
+import tempfile
+import time
 
-print("CWD:", os.getcwd())
-print("USER:", os.getlogin() if hasattr(os, "getlogin") else "N/A")
-print("PYTHON:", sys.executable)
-print("ENVIRONMENT:")
-for key in os.environ:
-    print(key)
-print(os.listdir("."))
-print(pathlib.Path.cwd())
-print(list(pathlib.Path(".").iterdir()))
-
-paths = [
-    ".",
-    "..",
-    os.path.expanduser("~"),
-    os.environ.get("TEMP"),
-    os.environ.get("USERPROFILE"),
-]
-
-for path in paths:
-    print(path, "=>", os.path.exists(path))
 
 def execute(code : str):
 
@@ -73,7 +53,8 @@ def execute(code : str):
     return fn_result
 
 code = '''
-print("Hello")
+import os
+print(os.listdir("C:/Users/a"))
 '''
 
 result = execute(code)
