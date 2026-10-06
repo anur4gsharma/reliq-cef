@@ -31,18 +31,45 @@ output.grid(row=0, column=0, sticky="nsew")
 output_frame.grid_rowconfigure(0, weight=1)
 output_frame.grid_columnconfigure(0, weight=1)
 
-def output_insert(line):
+output.tag_config("stderr", foreground="red")
+
+def output_insert_stdout(line):
     output.insert(tk.END, line)
+
+def output_insert_stderr(line):
+    output.insert(tk.END, line, "stderr")
+
+def stderr_thread_run(process):
+    for line in process:
+        root.after(0, output_insert_stderr, line)
+
+def stdout_thread_run(process):
+    for line in process:
+        root.after(0, output_insert_stdout, line)
 
 def execute_code(source):
     process = subprocess.Popen(
         [sys.executable, "-u", "-c", source],
         stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True
     )
 
-    for line in process.stdout:
-        root.after(0, output_insert, line)
+    stdout_thread = threading.Thread(
+        target=stdout_thread_run,
+        args=(process.stdout,)
+    )
+
+    stderr_thread = threading.Thread(
+        target=stderr_thread_run,
+        args=(process.stderr,)
+    )
+    stdout_thread.start()
+    stderr_thread.start()
+
+    process.wait()
+
+    print(process.returncode)
 
 
 def run_code():
@@ -55,7 +82,7 @@ def run_code():
     )
     thread.start()
 
-
+#git add executor/reliq_v1.py && git commit -m "python exe completed" && git push
 run_btn = tk.Button(toolbar, text="RUN", command=run_code)
 run_btn.pack(side="bottom")
 
