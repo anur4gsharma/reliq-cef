@@ -82,7 +82,6 @@ def run_code():
     )
     thread.start()
 
-#git add executor/reliq_v1.py && git commit -m "python exe completed" && git push
 run_btn = tk.Button(toolbar, text="RUN", command=run_code)
 run_btn.pack(side="bottom")
 
