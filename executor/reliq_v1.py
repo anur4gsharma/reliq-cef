@@ -31,22 +31,18 @@ output.grid(row=0, column=0, sticky="nsew")
 output_frame.grid_rowconfigure(0, weight=1)
 output_frame.grid_columnconfigure(0, weight=1)
 
-def output_insert(result):
-
-    output.insert(tk.END, result.stdout)
-
-    if result.stderr:
-        output.insert(tk.END, result.stderr)
+def output_insert(line):
+    output.insert(tk.END, line)
 
 def execute_code(source):
-    result = subprocess.run(
-        [sys.executable, "-c", source],
-        capture_output=True,
-        check=False,
+    process = subprocess.Popen(
+        [sys.executable, "-u", "-c", source],
+        stdout=subprocess.PIPE,
         text=True
     )
 
-    root.after(0, output_insert, result)
+    for line in process.stdout:
+        root.after(0, output_insert, line)
 
 
 def run_code():
