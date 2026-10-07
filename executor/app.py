@@ -14,6 +14,42 @@ code = view.editor.text
 output = view.output
 current_process = None
 
+def indent_with_spaces(event):
+    event.widget.insert(tk.INSERT, "    ")
+    return "break"
+
+def delete_previous_word(event):
+    editor = event.widget
+    cursor = editor.index(tk.INSERT)
+
+    if cursor == "1.0":
+        return "break"
+
+    line_start = editor.index(f"{cursor} linestart")
+    text_before_cursor = editor.get(line_start, cursor)
+
+    # Delete trailing whitespace first
+    if text_before_cursor and text_before_cursor[-1].isspace():
+        i = len(text_before_cursor) - 1
+
+        while i >= 0 and text_before_cursor[i].isspace():
+            i -= 1
+
+        start = f"{cursor} - {len(text_before_cursor) - 1 - i} chars"
+        editor.delete(start, cursor)
+
+    else:
+        # Delete the previous word
+        i = len(text_before_cursor) - 1
+
+        while i >= 0 and not text_before_cursor[i].isspace():
+            i -= 1
+
+        start = f"{cursor} - {len(text_before_cursor) - i - 1} chars"
+        editor.delete(start, cursor)
+
+    return "break"
+
 def output_insert_stdout(line):
     output.insert(tk.END, line)
 
@@ -85,8 +121,10 @@ def stop_code():
 
 view.toolbar.run_button.configure(command=run_code)
 view.toolbar.stop_button.configure(command=stop_code)
+code.bind("<Tab>", indent_with_spaces)
 code.bind("<Control-Return>", lambda _event: (run_code(), "break")[1])
 root.bind("<Control-period>", lambda _event: (stop_code(), "break")[1])
+root.bind("<Control-BackSpace>", delete_previous_word)
 
 if __name__ == "__main__":
     root.mainloop()
