@@ -1,7 +1,6 @@
 import subprocess
 import sys
 import threading
-import time
 import tkinter as tk
 
 if __package__:
@@ -30,7 +29,6 @@ def stdout_thread_run(process):
         root.after(0, output_insert_stdout, line)
 
 def execute_code(source):
-    started_at = time.perf_counter()
     process = subprocess.Popen(
         [sys.executable, "-u", "-c", source],
         stdout=subprocess.PIPE,
@@ -58,16 +56,18 @@ def execute_code(source):
     stdout_thread.join()
     stderr_thread.join()
 
-    print(process.returncode)
-    elapsed = time.perf_counter() - started_at
-    state = "Ready" if process.returncode == 0 else "Error"
-    root.after(0, view.set_state, state, process.returncode, elapsed)
+    if getattr(process, "reliq_interrupted", False):
+        print("Process interrupted")
+    else:
+        print(f"Process exited with code {process.returncode}")
+    root.after(0, view.set_running, False)
 
 def run_code():
 
     source = code.get("1.0", tk.END)
     output.delete("1.0", tk.END)
-    view.set_state("Running")
+    view.set_running(True)
+    previous_process = current_process
 
     thread = threading.Thread(
         target=execute_code,
@@ -75,19 +75,17 @@ def run_code():
     )
     thread.start()
 
-    if current_process is not None:
-        current_process.terminate()
-        current_process.join()
+    if previous_process is not None and previous_process.poll() is None:
+        previous_process.terminate()
 
 def stop_code():
-    if current_process is not None:
-        view.set_state("Stopped")
+    if current_process is not None and current_process.poll() is None:
+        current_process.reliq_interrupted = True
         current_process.terminate()
-        current_process.join()
 
 view.toolbar.run_button.configure(command=run_code)
 view.toolbar.stop_button.configure(command=stop_code)
-root.bind("<Control-Return>", lambda _event: (run_code(), "break")[1])
+code.bind("<Control-Return>", lambda _event: (run_code(), "break")[1])
 root.bind("<Control-period>", lambda _event: (stop_code(), "break")[1])
 
 if __name__ == "__main__":

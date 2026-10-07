@@ -30,9 +30,7 @@ class Toolbar(tk.Frame):
         )
         self.selector.pack(side="left", padx=(14, 8), pady=10)
         self.run_button = tk.Button(
-            self, text="Run", bg=theme.ACCENT_DARK, fg="#dce9ff",
-            activebackground="#314d75", activeforeground="white", relief="flat",
-            borderwidth=0, font=(theme.FONT, 10, "bold"), padx=16,
+            self, text="Run", font=(theme.FONT, 10), padx=16,
             cursor="hand2", takefocus=True,
         )
         self.run_button.pack(side="left", padx=(2, 6), pady=8, ipady=4)
@@ -47,12 +45,6 @@ class Toolbar(tk.Frame):
             cursor="hand2", takefocus=True,
         )
         self.stop_button.pack(side="left", pady=8, ipady=4)
-        self.state_label = tk.Label(
-            self, text="● Ready", bg=theme.SURFACE, fg=theme.GREEN,
-            font=(theme.FONT, 9, "bold"),
-        )
-        self.state_label.pack(side="right", padx=16)
-
     def selected_option(self):
         index = self.selector.current()
         return self.options[index] if 0 <= index < len(self.options) else None
