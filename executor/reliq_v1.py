@@ -55,6 +55,9 @@ def execute_code(source):
         text=True
     )
 
+    global current_process
+    current_process = process
+
     stdout_thread = threading.Thread(
         target=stdout_thread_run,
         args=(process.stdout,)
@@ -69,10 +72,13 @@ def execute_code(source):
 
     process.wait()
 
+    stdout_thread.join()
+    stderr_thread.join()
+    
     print(process.returncode)
 
-
 def run_code():
+    
     source = code.get("1.0", tk.END)
     output.delete("1.0", tk.END)
 
