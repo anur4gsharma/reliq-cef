@@ -1,37 +1,19 @@
-import tkinter as tk
 import subprocess
 import sys
 import threading
+import time
+import tkinter as tk
 
-root = tk.Tk()
-root.title("Reliq")
-root.geometry("900x600")
+if __package__:
+    from .ui.window import ReliqWindow, current_runtime_option
+else:
+    from ui.window import ReliqWindow, current_runtime_option
 
-toolbar = tk.Frame(root)
-editor_frame = tk.Frame(root)
-output_frame = tk.Frame(root)
-
-toolbar.grid(row=0, column=0, sticky="ew")
-editor_frame.grid(row=1, column=0, sticky="nsew")
-output_frame.grid(row=2, column=0, sticky="nsew")
-
-root.grid_rowconfigure(1, weight=1)
-root.grid_rowconfigure(2, weight=3)
-root.grid_columnconfigure(0, weight=1)
-
-code = tk.Text(editor_frame)
-code.grid(row=0, column=0, sticky="nsew")
-
-editor_frame.grid_rowconfigure(0, weight=1)
-editor_frame.grid_columnconfigure(0, weight=1)
-
-output = tk.Text(output_frame)
-output.grid(row=0, column=0, sticky="nsew")
-
-output_frame.grid_rowconfigure(0, weight=1)
-output_frame.grid_columnconfigure(0, weight=1)
-
-output.tag_config("stderr", foreground="red")
+view = ReliqWindow([current_runtime_option(".".join(map(str, sys.version_info[:3])))])
+root = view.root
+code = view.editor.text
+output = view.output
+current_process = None
 
 def output_insert_stdout(line):
     output.insert(tk.END, line)
@@ -48,6 +30,7 @@ def stdout_thread_run(process):
         root.after(0, output_insert_stdout, line)
 
 def execute_code(source):
+    started_at = time.perf_counter()
     process = subprocess.Popen(
         [sys.executable, "-u", "-c", source],
         stdout=subprocess.PIPE,
@@ -76,11 +59,15 @@ def execute_code(source):
     stderr_thread.join()
 
     print(process.returncode)
+    elapsed = time.perf_counter() - started_at
+    state = "Ready" if process.returncode == 0 else "Error"
+    root.after(0, view.set_state, state, process.returncode, elapsed)
 
 def run_code():
 
     source = code.get("1.0", tk.END)
     output.delete("1.0", tk.END)
+    view.set_state("Running")
 
     thread = threading.Thread(
         target=execute_code,
@@ -88,7 +75,20 @@ def run_code():
     )
     thread.start()
 
-run_btn = tk.Button(toolbar, text="RUN", command=run_code)
-run_btn.pack(side="bottom")
+    if current_process is not None:
+        current_process.terminate()
+        current_process.join()
 
-root.mainloop()
+def stop_code():
+    if current_process is not None:
+        view.set_state("Stopped")
+        current_process.terminate()
+        current_process.join()
+
+view.toolbar.run_button.configure(command=run_code)
+view.toolbar.stop_button.configure(command=stop_code)
+root.bind("<Control-Return>", lambda _event: (run_code(), "break")[1])
+root.bind("<Control-period>", lambda _event: (stop_code(), "break")[1])
+
+if __name__ == "__main__":
+    root.mainloop()
