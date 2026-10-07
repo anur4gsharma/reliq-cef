@@ -74,11 +74,11 @@ def execute_code(source):
 
     stdout_thread.join()
     stderr_thread.join()
-    
+
     print(process.returncode)
 
 def run_code():
-    
+
     source = code.get("1.0", tk.END)
     output.delete("1.0", tk.END)
 
