@@ -178,6 +178,10 @@ class Runner:
             result = ExecutionResult(status, "".join(stdout_parts), "".join(stderr_parts), exit_code,
                                     time.monotonic()-started, error)
             return result
+        except subprocess.TimeoutExpired as exc:
+            result = ExecutionResult("timeout", "".join(stdout_parts), "".join(stderr_parts), exit_code,
+                                     time.monotonic()-started, str(exc))
+            return result
         except (OSError, ValueError, subprocess.SubprocessError) as exc:
             result = ExecutionResult(status, "".join(stdout_parts), "".join(stderr_parts), exit_code,
                                      time.monotonic()-started, str(exc))

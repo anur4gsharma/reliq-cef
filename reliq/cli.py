@@ -46,4 +46,5 @@ def main(argv: list[str] | None = None) -> int:
     result = Runner().execute(runtime, source, project, lambda stream, value: (sys.stderr if stream == "stderr" else sys.stdout).write(value))
     if result.error: print(result.error, file=sys.stderr)
     if result.status == "timeout": print("execution timed out", file=sys.stderr)
-    return result.exit_code if result.exit_code is not None else (124 if result.status == "timeout" else 1)
+    if result.status == "timeout": return 124
+    return result.exit_code if result.exit_code is not None else 1

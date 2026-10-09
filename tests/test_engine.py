@@ -1,4 +1,5 @@
 import sys
+import subprocess
 import tempfile
 import threading
 import time
@@ -69,6 +70,12 @@ class EngineTests(unittest.TestCase):
             result = Runner().execute(python_runtime(), "print('done')")
         self.assertEqual(result.status, "success")
         self.assertIn("workspace cleanup failed", result.error)
+
+    def test_compiler_timeout_has_timeout_status(self):
+        compiler = Runtime("cpp", "cpp", "fake-compiler", "test", "fake")
+        with patch("reliq.engine.subprocess.run", side_effect=subprocess.TimeoutExpired(["fake-compiler"], .1)):
+            result = Runner(timeout=.1).execute(compiler, "int main(){}")
+        self.assertEqual(result.status, "timeout")
 
     def _check_adapter(self, language, source):
         runtime = next((item for item in discover() if item.language.lower() == language), None)
