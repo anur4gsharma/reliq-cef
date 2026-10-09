@@ -101,7 +101,14 @@ def launch(target: str | None = None, selected_language: str | None = None) -> i
     def close_window():
         if confirm_discard(): runner.cancel(); root.destroy()
     root.protocol("WM_DELETE_WINDOW", close_window)
-    view.set_commands(new_file, open_dialog, lambda: save(True), run_code, stop)
+    view.set_commands(
+        new_file=new_file,
+        open_file=open_dialog,
+        save=lambda: save(),
+        save_as=lambda: save(True),
+        run=run_code,
+        stop=stop,
+    )
     if target: load(target, startup=True)
     if selected_language: view.toolbar.select_language(selected_language)
     def probe():

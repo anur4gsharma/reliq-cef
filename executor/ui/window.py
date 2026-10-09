@@ -87,7 +87,7 @@ class ReliqWindow:
         self.root.configure(menu=menu)
         self.file_menu, self.run_menu = file_menu, run_menu
 
-    def set_commands(self, new_file, open_file, save, save_as, run, stop):
+    def set_commands(self, *, new_file, open_file, save, save_as, run, stop):
         for menu, index, callback in ((self.file_menu, 0, new_file), (self.file_menu, 1, open_file),
                                       (self.file_menu, 2, save), (self.file_menu, 3, save_as),
                                       (self.run_menu, 0, run), (self.run_menu, 1, stop)):
