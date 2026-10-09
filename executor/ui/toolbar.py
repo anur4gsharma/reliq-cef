@@ -82,7 +82,15 @@ class Toolbar(tk.Frame):
                     self.selector.current(subset.index(match))
             else:
                 self.language_value.set(previous_language)
+                alternatives = self._language_options()
+                self.selector.configure(values=[self._display(item) for item in alternatives])
                 self.selector.set("")
+                if alternatives:
+                    # Keep an explicit choice available when the pinned runtime
+                    # disappeared, even if only one replacement is now found.
+                    self.selector.pack(side="left", padx=(4, 8), pady=10)
+                else:
+                    self.selector.pack_forget()
         elif labels:
             self.language_selector.current(0)
             self._language_changed()
