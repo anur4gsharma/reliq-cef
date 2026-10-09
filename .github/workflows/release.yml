@@ -1,0 +1,130 @@
+name: Build and publish Reliq release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+          - os: windows-latest
+            platform: windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux Tk and virtualenv packages
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-tk python3-venv xvfb
+      - uses: actions/setup-python@v5
+        if: runner.os == 'Windows'
+        with:
+          python-version: "3.12"
+      - name: Create Linux build environment
+        if: runner.os == 'Linux'
+        run: python3 -m venv --system-site-packages .release-venv
+      - name: Install Reliq and PyInstaller
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            .release-venv/bin/python -m pip install . "PyInstaller==6.22.3"
+            echo "$GITHUB_WORKSPACE/.release-venv/bin" >> "$GITHUB_PATH"
+          else
+            python -m pip install . "PyInstaller==6.22.3"
+          fi
+      - name: Test installed application and GUI callbacks
+        env:
+          RELIQ_REQUIRE_GUI: "1"
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            xvfb-run -a .release-venv/bin/python -m unittest discover -v
+            xvfb-run -a .release-venv/bin/python tests/smoke_installed.py
+          else
+            python -m unittest discover -v
+            python tests/smoke_installed.py
+          fi
+      - name: Test installation from the tagged GitHub source archive
+        shell: bash
+        env:
+          TAG_ARCHIVE: https://github.com/anur4gsharma/reliq-cef/archive/refs/tags/${{ github.ref_name }}.zip
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            .release-venv/bin/python scripts/smoke_source_archive.py --archive "$TAG_ARCHIVE" tests/smoke_cli.py
+          else
+            python scripts/smoke_source_archive.py --archive "$TAG_ARCHIVE" tests/smoke_cli.py
+          fi
+      - name: Build Linux standalone binary
+        if: runner.os == 'Linux'
+        run: .release-venv/bin/python -m PyInstaller --clean --noconfirm --onefile --name reliq reliq_launcher.py
+      - name: Smoke-test Linux standalone binary
+        if: runner.os == 'Linux'
+        run: xvfb-run -a .release-venv/bin/python tests/smoke_frozen.py dist/reliq
+      - name: Package Linux artifact
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p release-assets/reliq-linux-x86_64
+          cp dist/reliq release-assets/reliq-linux-x86_64/reliq
+          cat > release-assets/reliq-linux-x86_64/INSTALL.txt <<'EOF'
+          Run ./reliq. Reliq bundles its Python/Tk runtime. Install Python, Node.js,
+          Bash, PowerShell, or a C++ compiler separately for programs in those languages.
+          EOF
+          tar -C release-assets -czf release-assets/reliq-linux-x86_64.tar.gz reliq-linux-x86_64
+      - name: Build Windows GUI binary
+        if: runner.os == 'Windows'
+        run: python -m PyInstaller --clean --noconfirm --onefile --windowed --name reliq reliq_launcher.py
+      - name: Smoke-test Windows GUI binary
+        if: runner.os == 'Windows'
+        run: python tests/smoke_frozen.py dist/reliq.exe
+      - name: Build Windows CLI binary
+        if: runner.os == 'Windows'
+        run: python -m PyInstaller --clean --noconfirm --onefile --name reliq-cli --distpath dist-cli --workpath build-cli reliq_launcher.py
+      - name: Verify Windows CLI binary
+        if: runner.os == 'Windows'
+        run: dist-cli/reliq-cli.exe --help
+      - name: Smoke-test Windows CLI stdin execution
+        if: runner.os == 'Windows'
+        run: python tests/smoke_frozen_cli.py dist-cli/reliq-cli.exe
+      - name: Package Windows artifact
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force release-assets | Out-Null
+          Copy-Item dist/reliq.exe release-assets/reliq.exe
+          Copy-Item dist-cli/reliq-cli.exe release-assets/reliq-cli.exe
+          @'
+          Run reliq.exe to open the GUI. Use reliq-cli.exe for command-line stdin mode.
+          Reliq bundles its Python/Tk runtime. Install Python, Node.js, Bash, PowerShell,
+          or a C++ compiler separately for programs in those languages.
+          '@ | Set-Content release-assets/INSTALL.txt
+          Compress-Archive -Path release-assets/reliq.exe,release-assets/reliq-cli.exe,release-assets/INSTALL.txt -DestinationPath release-assets/reliq-windows-x86_64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reliq-${{ matrix.platform }}-release
+          path: release-assets/reliq-${{ matrix.platform }}-x86_64.*
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+      - name: Attach verified artifacts to the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" release-assets/* --title "${GITHUB_REF_NAME}" --generate-notes

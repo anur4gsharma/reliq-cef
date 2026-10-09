@@ -17,6 +17,9 @@ classifiers = [
   "Operating System :: POSIX :: Linux",
 ]
 
+[project.optional-dependencies]
+packaging = ["PyInstaller==6.22.3"]
+
 [project.scripts]
 reliq = "reliq.cli:main"
 

@@ -1,41 +1,96 @@
 # Reliq
 
-Reliq is a small, keyboard-first local code scratchpad built with Python and Tkinter. It targets Windows and Linux and has no third-party runtime dependencies.
+Reliq is a small, keyboard-first local code scratchpad for Windows and Linux. It opens quickly, discovers usable local runtimes, and runs short programs without freezing the editor.
 
-## Requirements and installation
+## Install Reliq
 
-Install Python 3.10 or newer with Tk support. Install Reliq from a checkout:
+Choose a ready-to-run release artifact or install the Python package directly from a GitHub source archive. No clone or Git installation is needed for either route.
+
+### Option 1: Download a ready-to-run application
+
+Open [Reliq Releases](https://github.com/anur4gsharma/reliq-cef/releases) and download the asset for your platform. Release assets are generated for a version tag only after the Windows and Linux builds, tests, and smoke checks pass. If no release is listed yet, use the source archive option below.
+
+**Windows:** Download `reliq-windows-x86_64.zip`, extract it, and double-click `reliq.exe` to open the GUI. The archive also contains `reliq-cli.exe` for command-line use, including piped stdin.
+
+**Linux:** Download `reliq-linux-x86_64.tar.gz`, extract it, open a terminal in the extracted `reliq-linux-x86_64` directory, then run:
 
 ```sh
-python -m pip install .
+./reliq
+```
+
+The Linux artifact is built on Ubuntu 22.04 and requires a compatible glibc system. These applications bundle Reliq's Python and Tk runtime. They do **not** bundle the language runtimes used for your code: install Python, Node.js, Bash, PowerShell, or a C++ compiler separately for the languages you want to run. Linux builds and Windows artifacts are native to their respective operating systems; use the release that matches your platform and architecture.
+
+### Option 2: Install from a GitHub source archive
+
+This installs Reliq into your selected Python environment. It requires Python 3.10 or newer **with Tkinter/Tcl-Tk available**. The archive does not bundle Python or Tkinter.
+
+**Windows prerequisites:** Install Python 3.10+ from [python.org](https://www.python.org/downloads/windows/) and include the Tcl/Tk and IDLE feature in the installer. In PowerShell, install and start Reliq:
+
+```powershell
+py -3 -m pip install "https://github.com/anur4gsharma/reliq-cef/archive/refs/heads/main.zip"
 reliq
 ```
 
-On some Linux distributions, Tk is a separate OS package (often `python3-tk`). For development, use `python -m unittest discover -v` from the repository root.
+**Linux prerequisites:** Install Python, pip, virtual environments, and your distribution's Tk package. For Debian/Ubuntu:
 
-## Use
+```sh
+sudo apt install python3 python3-pip python3-venv python3-tk
+python3 -m venv --system-site-packages "$HOME/.venvs/reliq"
+source "$HOME/.venvs/reliq/bin/activate"
+python -m pip install "https://github.com/anur4gsharma/reliq-cef/archive/refs/heads/main.zip"
+reliq
+```
+
+The source archive follows the repository's `main` branch. To install a specific published source version instead, use the ZIP linked under that release's source assets or substitute its actual tag in the GitHub archive URL.
+
+**Download the source ZIP in a browser:** Open [the Reliq repository](https://github.com/anur4gsharma/reliq-cef), select **Code**, choose **Download ZIP**, then extract it. With Python/Tkinter installed, install from the extracted directory using `py -3 -m pip install .` on Windows or `python -m pip install .` on Linux (activate a virtual environment first if desired), then run `reliq`.
+
+### Launch and runtime prerequisites
 
 - `reliq` opens a blank scratchpad.
-- `reliq py`, `reliq js`, or `reliq sh` opens a blank editor with that language selected when its runtime is installed.
-- `reliq path/to/file.py` opens a supported source file in the editor.
-- `reliq -` executes piped stdin as Python; use `reliq - --language javascript` to choose another language.
-- `Ctrl+Enter` runs; `Ctrl+.` stops; `Ctrl+O`, `Ctrl+S`, and `Ctrl+N` open, save, and create a file.
+- `reliq py`, `reliq js`, or `reliq sh` opens a blank editor with that language selected when its runtime is available.
+- `reliq path/to/file.py` opens a supported source file.
+- `reliq -` executes piped stdin as Python; select another language with `reliq - --language javascript`.
 
-Supported languages are Python, Node.js JavaScript, Bash, PowerShell, and C++ using g++, c++, or clang++. Only runtimes that can return a version within the discovery timeout are shown. Runtime discovery checks PATH and relevant Python environments (`VIRTUAL_ENV`, `CONDA_PREFIX`, and `.venv`, `venv`, or `env` beside an opened file). Python choices display their interpreter path/version and source. The first detected candidate follows activated environment, project environment, then PATH precedence. Other choices can be selected from the runtime list.
+Reliq does not install language runtimes. Install the runtimes you need and make them available on `PATH`: Python; Node.js for JavaScript; Bash; PowerShell (`pwsh` or the platform's PowerShell executable); and a C++ compiler such as g++, c++, or clang++. Only detected, usable runtimes are shown in the editor.
 
-Reliq saves edited files as UTF-8. Scratchpad execution uses a fresh Reliq-owned temporary directory as its working directory. For a saved source file, execution uses the file's parent directory, so relative reads and writes follow that project context. The source file itself is never used as the temporary execution file.
+### Troubleshooting
 
-Execution defaults to a 30 second timeout. Stop and timeout terminate a POSIX process group on Linux, escalating from TERM to KILL. On Windows Reliq starts a new process group and uses `taskkill /T` for process-tree termination. Output is streamed over separate stdout and stderr readers and capped at 1 MB per stream. Since the streams are read independently, cross-stream ordering is approximate. Stale workspaces older than 24 hours are swept from Reliq's dedicated temp root at startup.
+- **“Tkinter is not available” / `No module named '_tkinter'`:** Install the operating system's Tk development/runtime package for the same Python installation. On Debian/Ubuntu, install `python3-tk`; on Windows, rerun the Python installer and enable Tcl/Tk and IDLE. Then reinstall Reliq into that same Python environment.
+- **A language is missing:** Install its runtime/compiler and ensure its executable is on `PATH`, then restart Reliq. An absent optional runtime does not prevent Reliq from launching.
+- **Linux release executable does not start:** Extract the archive and run `./reliq` from a terminal to see diagnostics. The ready-to-run Linux build targets Ubuntu 22.04-compatible glibc; older or non-glibc distributions may not be compatible. Use source-archive installation if necessary.
 
-Reliq executes local programs with the current user's permissions and environment. A subprocess is not a security sandbox. Run only code you trust.
+### Uninstall
 
-## Runtime installation
+For a Python installation, use the same Python environment where Reliq was installed: `python -m pip uninstall reliq` (on Windows, `py -3 -m pip uninstall reliq` when installed into that interpreter). For the Linux virtual environment above, activate it first. For a downloaded application, close Reliq and delete the extracted folder.
 
-Install the desired runtime using its normal platform installation process and ensure its executable is on `PATH`. C++ additionally requires a working compiler toolchain. Reliq does not install or manage language runtimes.
+## Using Reliq
 
-## Limitations
+- `Ctrl+Enter` runs the code; `Ctrl+.` stops it.
+- `Ctrl+O`, `Ctrl+S`, and `Ctrl+N` open, save, and create a file.
+- Reliq saves edited files as UTF-8. Scratchpad execution uses a fresh Reliq-owned temporary directory as its working directory. For a saved source file, execution uses the file's parent directory, so relative file access follows that project context. The original source file is not overwritten for execution.
+- Execution has a 30-second default timeout. On Linux, Reliq terminates the execution process group, escalating from TERM to KILL. On Windows, it starts a new process group and uses `taskkill /T` for process-tree termination.
+- stdout and stderr are streamed independently and each is capped at 1 MB. Their relative ordering is approximate. Stale workspaces older than 24 hours are swept from Reliq's dedicated temporary root at startup.
 
-The editor provides lightweight Python-oriented syntax coloring, line numbers, and basic file operations; it is not a full IDE. Runtime discovery validates availability through a bounded version command, then execution revalidates the selected executable. Python launcher `py.exe` enumeration, automatic Conda environment enumeration, and settings persistence are not implemented. Linux and Windows are the supported targets; macOS is not claimed.
+Reliq runs local code with your user's permissions and environment. A subprocess is **not a security sandbox**. Run only code you trust.
+
+## Supported languages and limitations
+
+Reliq supports Python, Node.js JavaScript, Bash, PowerShell, and C++ when a usable runtime/compiler is installed. Python interpreter choices include activated and relevant project-local environments, followed by PATH-discovered interpreters. The selected runtime is revalidated before execution. Python launcher (`py.exe`) enumeration, automatic Conda environment enumeration, and settings persistence are not implemented. Syntax coloring is lightweight and Python-oriented; Reliq is a scratchpad, not a full IDE. macOS is not a supported target.
+
+## Development
+
+The project requires Python 3.10+ and Tkinter. To work from a checkout, create a virtual environment and install the project:
+
+```sh
+python -m venv .venv
+# Linux: use --system-site-packages when Tkinter comes from the OS package manager.
+.venv/bin/python -m pip install -e .
+.venv/bin/reliq
+.venv/bin/python -m unittest discover -v
+```
+
+On Windows, use `.venv\Scripts\python -m pip install -e .`, `.venv\Scripts\reliq`, and `.venv\Scripts\python -m unittest discover -v`. See `.github/workflows/ci.yml` for the Windows/Linux CI matrix. Release binaries are built and smoke-tested by `.github/workflows/release.yml` when a `v*` tag is pushed; this repository does not claim an artifact exists until that workflow succeeds.
 
 ## License
 
