@@ -117,9 +117,34 @@ class Runner:
             compile_process = None
             argv = execution.argv
             if runtime.language.lower() == "cpp":
-                compile_process = subprocess.run(argv, cwd=working_directory or workspace, capture_output=True, text=True, timeout=self.timeout, check=False)
+                compile_kwargs = {"cwd": working_directory or workspace, "stdout": subprocess.PIPE,
+                                  "stderr": subprocess.PIPE, "text": True, "encoding": "utf-8", "errors": "replace"}
+                if os.name == "nt": compile_kwargs["creationflags"] = subprocess.CREATE_NEW_PROCESS_GROUP
+                else: compile_kwargs["start_new_session"] = True
+                with self._lock:
+                    if self._cancelled:
+                        result = ExecutionResult("cancelled", "", "", None, time.monotonic()-started)
+                        return result
+                    compile_process = subprocess.Popen(argv, **compile_kwargs)
+                    process = compile_process
+                    self._process = compile_process
+                try:
+                    _, compile_stderr = compile_process.communicate(timeout=self.timeout)
+                except subprocess.TimeoutExpired as exc:
+                    self._terminate(compile_process)
+                    _, compile_stderr = compile_process.communicate()
+                    result = ExecutionResult("timeout", "", (compile_stderr or "")[:self.output_limit],
+                                             compile_process.returncode, time.monotonic()-started, str(exc))
+                    return result
+                with self._lock:
+                    self._process = None
+                    cancelled = self._cancelled
+                if cancelled:
+                    result = ExecutionResult("cancelled", "", (compile_stderr or "")[:self.output_limit],
+                                             compile_process.returncode, time.monotonic()-started)
+                    return result
                 if compile_process.returncode:
-                    result = ExecutionResult("nonzero_exit", "", compile_process.stderr, compile_process.returncode, time.monotonic()-started)
+                    result = ExecutionResult("nonzero_exit", "", compile_stderr[:self.output_limit], compile_process.returncode, time.monotonic()-started)
                     return result
                 argv = (binary,)
             kwargs = {"cwd": working_directory or workspace, "stdout": subprocess.PIPE, "stderr": subprocess.PIPE}
@@ -128,6 +153,9 @@ class Runner:
             else:
                 kwargs["start_new_session"] = True
             with self._lock:
+                if self._cancelled:
+                    result = ExecutionResult("cancelled", "", "", None, time.monotonic()-started)
+                    return result
                 process = subprocess.Popen(argv, **kwargs)
                 self._process = process
             def read(stream, name, store):

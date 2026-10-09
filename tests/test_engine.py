@@ -5,6 +5,7 @@ import threading
 import time
 import unittest
 from unittest.mock import patch
+from unittest.mock import Mock
 from pathlib import Path
 
 from reliq.engine import Runner, _root, _safe_remove
@@ -73,7 +74,11 @@ class EngineTests(unittest.TestCase):
 
     def test_compiler_timeout_has_timeout_status(self):
         compiler = Runtime("cpp", "cpp", "fake-compiler", "test", "fake")
-        with patch("reliq.engine.subprocess.run", side_effect=subprocess.TimeoutExpired(["fake-compiler"], .1)):
+        process = Mock()
+        process.communicate.side_effect = [subprocess.TimeoutExpired(["fake-compiler"], .1), ("", "")]
+        process.poll.return_value = -9
+        process.returncode = -9
+        with patch("reliq.engine.subprocess.Popen", return_value=process), patch.object(Runner, "_terminate"):
             result = Runner(timeout=.1).execute(compiler, "int main(){}")
         self.assertEqual(result.status, "timeout")
 
