@@ -40,6 +40,7 @@ class CodeEditor(tk.Frame):
         self.text.bind("<Button-5>", self._on_scroll)
         self.text.bind("<Configure>", self._on_scroll)
         self.text.bind("<<Change>>", self._on_scroll)
+        self._highlight_job = None
         self.text.tag_configure("keyword", foreground="#c5a0ff")
         self.text.tag_configure("string", foreground="#a6d69a")
         self.text.tag_configure("comment", foreground="#707b8c")
@@ -61,6 +62,12 @@ class CodeEditor(tk.Frame):
 
     def _on_edit(self, _event=None):
         self._draw_gutter()
+        if self._highlight_job is not None:
+            self.after_cancel(self._highlight_job)
+        self._highlight_job = self.after(90, self._run_highlight)
+
+    def _run_highlight(self):
+        self._highlight_job = None
         self._highlight()
 
     def _draw_gutter(self):

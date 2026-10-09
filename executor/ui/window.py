@@ -32,6 +32,12 @@ class ReliqWindow:
         self.panes.paneconfigure(self.editor, height=470)
         self.panes.paneconfigure(self.output, height=180)
 
+        self.status = tk.StringVar(value="Ready")
+        self.status_bar = tk.Label(self.root, textvariable=self.status, anchor="w", bg=theme.SURFACE,
+                                   fg=theme.MUTED, padx=12, font=(theme.FONT, 9))
+        self.status_bar.grid(row=2, column=0, sticky="ew")
+        self.commands = {}
+
         self.root.grid_columnconfigure(0, weight=1)
         self.root.grid_rowconfigure(1, weight=1)
 
@@ -57,6 +63,11 @@ class ReliqWindow:
             tearoff=False, borderwidth=0,
         )
         file_menu = tk.Menu(menu, tearoff=False, bg=theme.SURFACE, fg=theme.TEXT)
+        file_menu.add_command(label="New", accelerator="Ctrl+N")
+        file_menu.add_command(label="Open…", accelerator="Ctrl+O")
+        file_menu.add_command(label="Save", accelerator="Ctrl+S")
+        file_menu.add_command(label="Save As…")
+        file_menu.add_separator()
         file_menu.add_command(label="Quit", command=self.root.destroy, accelerator="Alt+F4")
         menu.add_cascade(label="File", menu=file_menu)
         edit_menu = tk.Menu(menu, tearoff=False, bg=theme.SURFACE, fg=theme.TEXT)
@@ -69,12 +80,29 @@ class ReliqWindow:
             accelerator="Ctrl+Y",
         )
         menu.add_cascade(label="Edit", menu=edit_menu)
+        run_menu = tk.Menu(menu, tearoff=False, bg=theme.SURFACE, fg=theme.TEXT)
+        run_menu.add_command(label="Run", accelerator="Ctrl+Enter")
+        run_menu.add_command(label="Stop", accelerator="Ctrl+.")
+        menu.add_cascade(label="Run", menu=run_menu)
         self.root.configure(menu=menu)
+        self.file_menu, self.run_menu = file_menu, run_menu
 
-    def set_running(self, running):
-        self.toolbar.run_button.configure(
-            relief=tk.SUNKEN if running else tk.RAISED,
-        )
+    def set_commands(self, new_file, open_file, save, save_as, run, stop):
+        for menu, index, callback in ((self.file_menu, 0, new_file), (self.file_menu, 1, open_file),
+                                      (self.file_menu, 2, save), (self.file_menu, 3, save_as),
+                                      (self.run_menu, 0, run), (self.run_menu, 1, stop)):
+            menu.entryconfigure(index, command=callback)
+
+    def set_status(self, value):
+        self.status.set(value)
+
+    def set_runtimes(self, runtimes, selected_language=None):
+        return self.toolbar.set_options(runtimes, selected_language)
+
+    def set_running(self, running, stoppable=None):
+        if stoppable is None: stoppable = running
+        self.toolbar.run_button.configure(state="disabled" if running else "normal")
+        self.toolbar.stop_button.configure(state="normal" if stoppable else "disabled")
 
 
 def current_runtime_option(version):
