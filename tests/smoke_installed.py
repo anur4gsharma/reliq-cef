@@ -4,9 +4,8 @@ from __future__ import annotations
 import os
 import signal
 import subprocess
-import sys
+import tempfile
 import time
-from pathlib import Path
 from shutil import which
 from unittest.mock import patch
 
@@ -38,17 +37,20 @@ def main() -> None:
     subprocess.run([command, "--help"], check=True, timeout=10,
                    stdout=subprocess.DEVNULL)
 
-    process = subprocess.Popen(
-        [command], cwd=Path.cwd().parent if Path.cwd().name == "tests" else Path.cwd(),
-        stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        start_new_session=(os.name != "nt"),
-    )
-    try:
-        time.sleep(1.5)
-        if process.poll() is not None:
-            raise RuntimeError(f"installed reliq exited during GUI startup: {process.returncode}")
-    finally:
-        stop_tree(process)
+    with tempfile.TemporaryDirectory(prefix="reliq-launch-cwd-") as other_directory:
+        subprocess.run([command, "--help"], cwd=other_directory, check=True,
+                       timeout=10, stdout=subprocess.DEVNULL)
+        process = subprocess.Popen(
+            [command], cwd=other_directory,
+            stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=(os.name != "nt"),
+        )
+        try:
+            time.sleep(1.5)
+            if process.poll() is not None:
+                raise RuntimeError(f"installed reliq exited during GUI startup: {process.returncode}")
+        finally:
+            stop_tree(process)
 
     view = ReliqWindow([])
     calls = []

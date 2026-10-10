@@ -8,6 +8,24 @@ from pathlib import Path
 from .engine import Runner, sweep_stale
 from .runtime import discover, language_for_extension
 
+LANGUAGE_ALIASES = {
+    "py": "python",
+    "python": "python",
+    "js": "javascript",
+    "javascript": "javascript",
+    "sh": "bash",
+    "bash": "bash",
+    "ps": "powershell",
+    "powershell": "powershell",
+    "cpp": "cpp",
+    "c++": "cpp",
+}
+
+
+def normalize_language(value: str) -> str:
+    normalized = value.lower()
+    return LANGUAGE_ALIASES.get(normalized, normalized)
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="reliq", description="A small local code scratchpad")
@@ -24,9 +42,9 @@ def main(argv: list[str] | None = None) -> int:
             from .app import launch
             return launch(str(path))
         elif target:
-            language = {"py": "python", "python": "python", "js": "javascript", "javascript": "javascript",
-                        "sh": "bash", "bash": "bash", "ps": "powershell", "powershell": "powershell", "cpp": "cpp", "c++": "cpp"}.get(target.lower())
-            if not language: parser.error(f"unknown language or file: {target}")
+            language = LANGUAGE_ALIASES.get(target.lower())
+            if not language:
+                parser.error(f"unknown language or file: {target}")
             from .app import launch
             return launch(selected_language=language)
         else:
@@ -35,9 +53,9 @@ def main(argv: list[str] | None = None) -> int:
     else:
         if sys.stdin.isatty(): parser.error("stdin mode requires piped input")
         source = sys.stdin.read()
-        language = args.language or "python"
-        language = {"py":"python", "js":"javascript", "sh":"bash", "ps":"powershell", "c++":"cpp"}.get(language, language)
-        if language not in {"python", "javascript", "bash", "powershell", "cpp"}: parser.error(f"unsupported language: {language}")
+        language = normalize_language(args.language or "python")
+        if language not in {"python", "javascript", "bash", "powershell", "cpp"}:
+            parser.error(f"unsupported language: {language}")
         project = None
     runtimes = discover(project)
     runtime = next((item for item in runtimes if item.language.lower() == language), None)

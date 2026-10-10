@@ -24,4 +24,4 @@ packaging = ["PyInstaller==6.22.3"]
 reliq = "reliq.cli:main"
 
 [tool.setuptools]
-packages = ["reliq", "executor.ui"]
+packages = ["reliq", "executor", "executor.ui"]

@@ -20,30 +20,41 @@ Open [Reliq Releases](https://github.com/anur4gsharma/reliq-cef/releases) and do
 
 The Linux artifact is built on Ubuntu 22.04 and requires a compatible glibc system. These applications bundle Reliq's Python and Tk runtime. They do **not** bundle the language runtimes used for your code: install Python, Node.js, Bash, PowerShell, or a C++ compiler separately for the languages you want to run. Linux builds and Windows artifacts are native to their respective operating systems; use the release that matches your platform and architecture.
 
-### Option 2: Install from a GitHub source archive
+### Option 2: Install a `reliq` command for your terminal
 
-This installs Reliq into your selected Python environment. It requires Python 3.10 or newer **with Tkinter/Tcl-Tk available**. The archive does not bundle Python or Tkinter.
+This installs Reliq as a command available from any working directory, provided the installer’s command directory is on your `PATH`. It requires Python 3.10 or newer **with Tkinter/Tcl-Tk available**. The source archive does not bundle Python or Tkinter. For a dedicated command-line install, use `pipx` so Reliq’s dependencies stay isolated from other Python projects.
 
-**Windows prerequisites:** Install Python 3.10+ from [python.org](https://www.python.org/downloads/windows/) and include the Tcl/Tk and IDLE feature in the installer. In PowerShell, install and start Reliq:
+**Windows prerequisites:** Install Python 3.10+ from [python.org](https://www.python.org/downloads/windows/) and include the Tcl/Tk and IDLE feature. In PowerShell, install `pipx` and Reliq:
 
 ```powershell
-py -3 -m pip install "https://github.com/anur4gsharma/reliq-cef/archive/refs/heads/main.zip"
+py -3 -m pip install --user pipx
+py -3 -m pipx ensurepath
+```
+
+Open a new terminal after `ensurepath`, then run:
+
+```powershell
+py -3 -m pipx install "https://github.com/anur4gsharma/reliq-cef/archive/refs/heads/main.zip"
 reliq
 ```
 
-**Linux prerequisites:** Install Python, pip, virtual environments, and your distribution's Tk package. For Debian/Ubuntu:
+**Linux prerequisites:** Install Python, pipx, and your distribution's Tk package. For Debian/Ubuntu:
 
 ```sh
-sudo apt install python3 python3-pip python3-venv python3-tk
-python3 -m venv --system-site-packages "$HOME/.venvs/reliq"
-source "$HOME/.venvs/reliq/bin/activate"
-python -m pip install "https://github.com/anur4gsharma/reliq-cef/archive/refs/heads/main.zip"
+sudo apt install python3 python3-tk pipx
+pipx ensurepath
+```
+
+Open a new terminal after `ensurepath`, then install and launch Reliq:
+
+```sh
+pipx install "https://github.com/anur4gsharma/reliq-cef/archive/refs/heads/main.zip"
 reliq
 ```
 
-The source archive follows the repository's `main` branch. To install a specific published source version instead, use the ZIP linked under that release's source assets or substitute its actual tag in the GitHub archive URL.
+The source archive follows the repository's `main` branch. To install a specific published source version instead, substitute its tag in the GitHub archive URL. `pipx ensurepath` adds the pipx application directory to the user PATH; if `reliq` is still not found, restart the terminal and check that directory is on `PATH`.
 
-**Download the source ZIP in a browser:** Open [the Reliq repository](https://github.com/anur4gsharma/reliq-cef), select **Code**, choose **Download ZIP**, then extract it. With Python/Tkinter installed, install from the extracted directory using `py -3 -m pip install .` on Windows or `python -m pip install .` on Linux (activate a virtual environment first if desired), then run `reliq`.
+**Download the source ZIP in a browser:** Open [the Reliq repository](https://github.com/anur4gsharma/reliq-cef), select **Code**, choose **Download ZIP**, then extract it. With Python/Tkinter installed, run `pipx install <extracted-directory>` to make `reliq` available independently of the current directory. For development, install into a virtual environment with `python -m pip install -e .`; in that case activate the environment (or invoke its `bin/reliq` / `Scripts/reliq.exe` path) before launching.
 
 ### Launch and runtime prerequisites
 
@@ -62,7 +73,7 @@ Reliq does not install language runtimes. Install the runtimes you need and make
 
 ### Uninstall
 
-For a Python installation, use the same Python environment where Reliq was installed: `python -m pip uninstall reliq` (on Windows, `py -3 -m pip uninstall reliq` when installed into that interpreter). For the Linux virtual environment above, activate it first. For a downloaded application, close Reliq and delete the extracted folder.
+For a pipx installation, run `pipx uninstall reliq`. For a development virtual environment, use that environment's `python -m pip uninstall reliq`. For a downloaded application, close Reliq and delete the extracted folder.
 
 ## Using Reliq
 
