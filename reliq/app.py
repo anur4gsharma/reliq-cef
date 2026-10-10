@@ -19,7 +19,13 @@ def launch(target: str | None = None, selected_language: str | None = None) -> i
     events: queue.Queue = queue.Queue()
     runner = Runner()
     state = {"busy": False, "path": None, "dirty": False, "runtimes": [], "last_runtime": None,
-             "initial_selection_applied": False, "pending_language": None}
+             "initial_selection_applied": False, "pending_language": None, "discovery_revision": 0}
+    view.toolbar.on_language_change = editor.set_language
+    def discover_async(project):
+        state["discovery_revision"] += 1
+        revision = state["discovery_revision"]
+        def worker(): events.put(("runtimes", revision, discover(project)))
+        threading.Thread(target=worker, daemon=True).start()
     def show_error(title, exc): messagebox.showerror(title, str(exc), parent=root)
     def confirm_discard():
         if not state["dirty"]: return True
@@ -31,11 +37,15 @@ def launch(target: str | None = None, selected_language: str | None = None) -> i
         try: content = Path(path).read_text(encoding="utf-8")
         except (OSError, UnicodeError) as exc: show_error("Open failed", exc); return
         editor.text.delete("1.0", "end"); editor.text.insert("1.0", content)
+        editor.text.edit_modified(False)
+        editor.refresh()
         state.update(path=str(Path(path).resolve()), dirty=False)
         state["pending_language"] = language_for_extension(str(path))
-        if state["pending_language"]: view.toolbar.select_language(state["pending_language"])
+        if state["pending_language"]:
+            editor.set_language(state["pending_language"])
+            view.toolbar.select_language(state["pending_language"])
         root.title(f"Reliq — {Path(path).name}")
-        threading.Thread(target=lambda: events.put(("runtimes", discover(str(Path(path).parent)), "")), daemon=True).start()
+        discover_async(str(Path(path).parent))
     def save(save_as=False):
         path = state["path"]
         if save_as or not path: path = filedialog.asksaveasfilename(parent=root, defaultextension=".py", filetypes=[("Source files", "*.py *.js *.mjs *.sh *.ps1 *.cpp *.cc *.cxx"), ("All files", "*")])
@@ -45,7 +55,9 @@ def launch(target: str | None = None, selected_language: str | None = None) -> i
         state.update(path=str(Path(path).resolve()), dirty=False); root.title(f"Reliq — {Path(path).name}"); return True
     def new_file():
         if not confirm_discard(): return
-        editor.text.delete("1.0", "end"); state.update(path=None, dirty=False, pending_language=None); root.title("Reliq")
+        editor.text.delete("1.0", "end"); editor.text.edit_modified(False)
+        editor.refresh()
+        state.update(path=None, dirty=False, pending_language=None); root.title("Reliq")
     def run_code(_event=None):
         if state["busy"]: return "break"
         runtime = view.toolbar.selected_option()
@@ -59,7 +71,7 @@ def launch(target: str | None = None, selected_language: str | None = None) -> i
         def worker():
             try:
                 if not validate(runtime):
-                    events.put(("runtimes", discover(cwd), ""))
+                    events.put(("runtime_missing", runtime.identity, cwd))
                     events.put(("done", None, "Selected runtime is no longer available. Choose another runtime.")); return
                 result = runner.execute(runtime, source, cwd, lambda stream, value: events.put(("output", stream, value)))
                 events.put(("done", result, ""))
@@ -67,9 +79,6 @@ def launch(target: str | None = None, selected_language: str | None = None) -> i
         threading.Thread(target=worker, daemon=True).start()
         return "break"
     def stop(): runner.cancel()
-    def indent_with_spaces(event):
-        event.widget.insert(tk.INSERT, "    ")
-        return "break"
     def delete_previous_word(event):
         widget = event.widget
         cursor = widget.index(tk.INSERT)
@@ -81,14 +90,23 @@ def launch(target: str | None = None, selected_language: str | None = None) -> i
         while index >= 0 and before[index].isspace() == whitespace: index -= 1
         widget.delete(f"{cursor} - {len(before) - index - 1} chars", cursor)
         return "break"
-    def on_change(_event=None):
+    def on_modified(_event=None):
+        if not editor.text.edit_modified(): return
+        editor.text.edit_modified(False)
         state["dirty"] = True
+        update_cursor_status()
+    def update_cursor_status():
         line, column = editor.line_column()
         if not state["busy"]: view.set_status(f"Ln {line}, Col {column}")
     view.toolbar.run_button.configure(command=run_code)
     view.toolbar.stop_button.configure(command=stop, state="disabled")
-    editor.text.bind("<KeyRelease>", on_change, add="+")
-    editor.text.bind("<Tab>", indent_with_spaces)
+    def refresh_runtimes():
+        project = str(Path(state["path"]).parent) if state["path"] else None
+        view.set_status("Refreshing runtimes…")
+        discover_async(project)
+    view.toolbar.refresh_button.configure(command=refresh_runtimes)
+    editor.text.bind("<<Modified>>", on_modified, add="+")
+    editor.text.bind("<KeyRelease>", lambda _event: update_cursor_status(), add="+")
     editor.text.bind("<Control-BackSpace>", delete_previous_word)
     editor.text.bind("<Control-Return>", run_code)
     root.bind("<Control-period>", lambda _event: (stop(), "break")[1])
@@ -111,22 +129,30 @@ def launch(target: str | None = None, selected_language: str | None = None) -> i
     )
     if target: load(target, startup=True)
     if selected_language: view.toolbar.select_language(selected_language)
-    def probe():
-        candidates = discover(str(Path(state["path"]).parent) if state["path"] else None)
-        events.put(("runtimes", candidates, ""))
     # runtime discovery starts only after the window has been mapped
-    def initial_probe(): threading.Thread(target=probe, daemon=True).start()
+    def initial_probe():
+        project = str(Path(state["path"]).parent) if state["path"] else None
+        discover_async(project)
     def poll():
         try:
             while True:
                 event = events.get_nowait()
                 if event[0] == "runtimes":
-                    state["runtimes"] = event[1]
+                    _, revision, candidates = event
+                    if revision != state["discovery_revision"]:
+                        continue
+                    state["runtimes"] = candidates
                     requested = state["pending_language"] or (selected_language if not state["initial_selection_applied"] else None)
-                    lost = view.set_runtimes(event[1], requested)
+                    lost = view.set_runtimes(candidates, requested)
                     state["pending_language"] = None
                     state["initial_selection_applied"] = True
                     if lost: view.set_status("Selected runtime is unavailable; choose another runtime.")
+                elif event[0] == "runtime_missing":
+                    _, identity, project = event
+                    selected = view.toolbar.selected_option()
+                    current_project = str(Path(state["path"]).parent) if state["path"] else None
+                    if selected and selected.identity == identity and current_project == project:
+                        discover_async(project)
                 elif event[0] == "output": view.output.insert(tk.END, event[2], "stderr" if event[1] == "stderr" else None)
                 else:
                     _, result, error = event; state["busy"] = False; view.set_running(False, False)
@@ -138,6 +164,7 @@ def launch(target: str | None = None, selected_language: str | None = None) -> i
                         if result.error: show_error("Execution cleanup", result.error)
         except queue.Empty: pass
         if root.winfo_exists(): root.after(40, poll)
-    root.after(0, initial_probe); root.after(40, poll)
+    if not target: root.after(0, initial_probe)
+    root.after(40, poll)
     root.mainloop()
     return 0
